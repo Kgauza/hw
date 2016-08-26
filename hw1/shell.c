@@ -1,3 +1,11 @@
+/*
+ * shell.c
+ *
+ *  Created on: 26 Aug 2016
+ *      Author: vmuser
+ */
+
+
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -35,6 +43,10 @@ typedef struct fun_desc {
 fun_desc_t cmd_table[] = {
   {cmd_help, "?", "show this help menu"},
   {cmd_quit, "quit", "quit the command shell"},
+  {cmd_cd, "cd", "change working directory"},
+  {cmd_wait, "wait", "waiting for child processes to finish"},
+  {cmd_fg, "fg", "putting process in foreground"},
+  {cmd_bg, "bg", "putting process in background"},
 };
 
 int lookup(char cmd[]) {
@@ -78,9 +90,10 @@ void init_shell()
     tcsetpgrp(shell_terminal, shell_pgid);
     tcgetattr(shell_terminal, &shell_tmodes);
   }
-  
+
   /** YOUR CODE HERE */
   // ignore signals
+  SET_SIGNALS( SIG_IGN );
 }
 
 /**
@@ -89,6 +102,17 @@ void init_shell()
 void add_process(process* p)
 {
   /** YOUR CODE HERE */
+	if( first_process == NULL ){ // insertion into an empty list
+	    first_process = p;
+	    p->next = p;
+	    p->prev = p;
+	  }
+	  else {
+	    first_process->prev->next = p; // insert at the end of a non-empty list
+	    p->prev = first_process->prev;
+	    first_process->prev = p;
+	    p->next = first_process;
+	  }
 }
 
 /**
@@ -98,7 +122,70 @@ void add_process(process* p)
 process* create_process(tok_t* tokens)
 {
   /** YOUR CODE HERE */
+	  int outfile = STDOUT_FILENO; // by default, output goes to STDOUT
+	  // check if we need to redirect output for this processs
+	  char *out_redirect = strstr( tokens, ">" );
+	  if( out_redirect != NULL ){
+	    // redirect output
+	    *out_redirect = NUL; // prune 'inputString'
+	    char *output = out_redirect + 1; // cut off the portion with the file name
+	    // open a file for writing
+	    char *file = getToks(output)[0];
+	    outfile = open( file, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | S_IROTH | S_IWOTH);
+	     // check that the file was opened
+	     if( outfile < 0 ) {
+	       perror( file );
+	       return NULL;
+	     }
+	  }
+
+	  int infile = STDIN_FILENO;
+
+	  char *in_redirect = strstr(tokens, "<");
+	  if(in_redirect != NULL){
+		  *in_direct = NUL;
+		  char *input = in_indirect+1;
+		  char*file = getToks(input)[0];
+		  infile = open(file, O_RDONLY);
+
+		  if(infile < 0){
+			  perror(file);
+			  return NULL;
+		  }
+	  }
+
+	  bool is background = false;
+	  char *bg = strchr(tokens,'&');
+	  if(bg!=NULL){
+		  is_background=true;
+		  bg=NL;
+	  }
+	  tok_t *t= getToks(inputString);
+	  int fundex =lookup(t[0]);
+	  if(fundex >=0){
+		  cmd_table[fundex.fun(&t[1])];
+		  return NULL;
+	  }
+	  else{
+		  process* p = (process*) calloc(1, sizeof(process));
+		  p->stdin = infile;
+		  p->stdout = outfile;
+		  p->stderr = STDERR_FILENO;
+		  p->background = is_background;
+		  p->next = p->prev =NULL;
+
+		  int argc = 0;
+		  for(tok_t *tok =t;  *tok != NUL; ++tok)
+			  ++argc;
+
+		  p->argc = argc;
+		  p->argv =t;
+
+		  add_process(p);
+		  return p;
+	  }
   return NULL;
+
 }
 
 
@@ -111,28 +198,38 @@ int shell (int argc, char *argv[]) {
   char *s = malloc(INPUT_STRING_SIZE+1); // user input string
   tok_t *t;			                     // tokens parsed from input
   // if you look in parse.h, you'll see that tokens are just c-style strings
-  
-  int lineNum = 0;
-  int fundex = -1;
-  
-  // perform some initialisation
-  init_shell();
 
-  printf("%s running as PID %d under %d\n",argv[0],pid,ppid);
-
-  lineNum=0;
-  // change this to print the current working directory before each line as well as the line number.
-  fprintf(stdout, "%d: ", lineNum);
-  while ((s = freadln(stdin))){
-    t = getToks(s); // break the line into tokens
-    fundex = lookup(t[0]); // Is first token a shell literal
-    if(fundex >= 0) cmd_table[fundex].fun(&t[1]);
-    else {
-       // replace this statement to call a function that runs executables
-      fprintf(stdout, "This shell only supports built-ins. Replace this to run programs as commands.\n");
-    }
-    // change this to print the current working directory before each line as well as the line number.
-    fprintf(stdout, "%d: ", lineNum);
+  while((s=freadln(stdin))){
+	  process *p = create_process(s);
+	  if(p!=NULL){
+		 cpid =fork();
+		 if(cpid==0){
+			 p->pid= getpid();
+			 launch_process(p);
+		 }
+		 else if(cpid==0){
+			 p->pid = cpid;
+			 if(shell_is_interactive){
+				 if(setgpid(cpid, cpid)<0){
+					 printf("Failed to put the child into its own process group.\n");
+				 }
+				 if(p->background){
+					 put_in_background(p,false);
+				 }
+				 else{
+					 put_in_foreground(p,false);
+				 }
+			 }
+			 else{
+				 wait_for_process(p);
+			 }
+		 }
+		 else{
+			 printf("fork() failed\n");
+		 }
+	  }
+	  print_prompt();
   }
-  return 0;
+
+  return EXIT_SUCCESS;
 }
