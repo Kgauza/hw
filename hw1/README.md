@@ -252,4 +252,4 @@ If your code doesn't compile or run, you will get 0. If you haven't quite finish
 Please ensure that your shell doesn't have any extraneous output for debugging. That is, any time a built-in or a process is run with your shell, only the output of the built-in or process
 should be printed. Please do not print anything extra, as this can disrupt our marking and may influence your score.
 
-Lastly, ensure you have separate folders for each homework. All your source code for this assignment should be in a 'hw1' folder in the root of your repository.
+Lastly, ensure you have separate folders for each homework. All your source code for this assignment should be in a folder called 'hw1' (case sensitive) in the root of your repository.
