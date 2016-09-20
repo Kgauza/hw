@@ -50,7 +50,7 @@ The buddy memory allocation algorithm works by dividing memory partitions of spe
 
 Consider a binary buddy system where each block is a power of two. You start off with a single block of some maximum block size, say 2<sup>n</sup>. 
 The system works by subdividing this block to best fit the sizes of memory allocations to powers of 2.
-A block's buddy is its immediate neighbour formed during a split.
+A block's buddy is its immediate neighbour formed during a split. Buddy blocks are merged when both are free, this reduces external fragmentation.
 
 Whenever a request for a memory allocation is performed:
 - The size of the request is rounded up to the next power of two, say 2<sup>k</sup>
@@ -66,7 +66,7 @@ Whenever memory is freed:
     - Merge the two blocks
     - Attempt to merge the buddy of the merged block until the upper block limit is reached or the buddy is not free
 
-The main advantage of buddy allocation is fast block merging, since 'buddy' blocks are coalesced without needing to traverse any list of free blocks.
+The main advantage of buddy allocation is fast block merging, since 'buddy' blocks are coalesced without needing to traverse the entire list looking for free blocks.
 The main disadvantage of buddy allocators is that they suffer from internal fragmentation, because allocations are rounded up to the nearest block size. 
 For example, a 68-byte allocation will require a 128-byte block.
 
@@ -94,11 +94,10 @@ We see internal fragmantation here. Since the size was rounded up, 22KiB of spac
 
 <p align="center"><img src="./images/buddymerge.png" alt="Buddy Merge" align="middle"></p>
 
+## 4 Tasks
 
 You will use the buddy memory allocation technique for your custom allocator.  
-There are numerous versions of this algorithm, we have provided skeleton code for you to implement a simple linked list of blocks.
-
-## 4 Tasks
+There are numerous versions of this algorithm, we have provided skeleton code with a structure for a simple linked list of blocks.
 
 ### 4.1 Setup
 
@@ -108,8 +107,7 @@ $ git clone https://github.com/WITS-COMS2001/hw.git
 $ cd hw/hw2
 ```
 
-We have provided a very simple program in main.c to test your allocator. It will produce various errors until you implement the functions in mm_alloc.c.
-You can run it as follows:  
+We have provided a very simple program in main.c to test your allocator. It will produce various errors until you implement the functions in mm_alloc.c. You can run it as follows:  
 ```
 $ make
 $ ./hw2
@@ -133,8 +131,9 @@ NOTES:
 - Remember to add the sizeof your block struct to the requested size; you need to fit the block metadata into the same space.  
 - On the first mm_malloc request, extend the heap with ```sbrk()``` and create the maximum block. Afterwards, you can follow the normal sequence of allocating a block.  
 - Use a first-fit algorithm when searching for a block: Search for the first block greater or equal in size to allocate, and split the block as usual if greater.  
-- If you run out of space in your first maximum block region, you need to allocate another block of the maximum size and ensure your block list is updated accordingly.  
-- Beware of pointer arithmetic behaviour.
+- When initialising a block, initialise the 'merged_buddy' array elements to NULL.
+- When splitting a block, add the buddy of the block being split to the 'merged_buddy' arrays of the split blocks. This aids in the merging process.
+- Beware of pointer arithmetic behaviour!
 
 ### 4.3 Deallocation
 
@@ -143,14 +142,17 @@ void mm_free( void* ptr )
 ```  
 The function takes in a pointer to a memory block previously allocated using mm_alloc() and frees it, making it available for allocation again.
 Ensure that only pointers to valid blocks are freed. If ptr is NULL, do nothing.
-
 To reduce fragmentation and use memory efficiently, blocks should be merged when when freed.  
-When a block is freed, check its buddy. If the buddy is also free, merge the blocks together.  
-If the buddy is not the same size as the current block, obviously it cannot be merged since it is split.  
-Check recursively on the larger merged blocks until the buddy is not free, or at the largest block size.  
 
 - **Implement the mm_free() function**
 - **Implement block merging on free**
+
+NOTES:
+- When a block is freed, check its buddy. If the buddy is also free, merge the blocks together.  
+- If the buddy is not the same size as the current block, obviously it cannot be merged since it is split.
+- Check on the larger merged blocks until the buddy is not free, or at the largest block size.  
+- You should use the 'merged_buddy' array to hold the buddies of the merged blocks.
+- Keep the 'merged_buddy' array updated as blocks are split and merged.
 
 ### 4.4 Reallocation
 
@@ -162,6 +164,7 @@ The function takes in a pointer to a memory block previously allocated using mm_
 - **Implement the mm_realloc() function**
 
 NOTES:
+- Remember to round up the size
 - The contents of the old block must be copied into the new block, hint: use ```memcpy```. You may use the same block if it fits the size. 
 - The previous memory location must be deallocated if a new block is chosen.  
 - mm_realloc() on a NULL pointer should behave the same as mm_alloc().
@@ -176,6 +179,6 @@ git add .
 git commit
 git push https://github.com/WITS-COMS2001/<student_number> master
 ```
-- Ensure that you include all files for your submission to be compiled. That is, if we run ```make``` on only the files you submitted, it should compile without errors. If your code doesn't compile or run, you will get 0.  
+- Ensure that you include all files for your submission to be compiled. That is, if we run ```make``` on only the files you submitted, it should compile without errors. If your code does not compile or run, you will get 0.  
 
 This assignment is due **14 October 2016, 11:59 PM**. Please ensure your final code is in your private repository by then! 
