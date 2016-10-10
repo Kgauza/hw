@@ -1,6 +1,6 @@
 # Homework 2: Memory Allocator #
 
-**Due: 14 October 2016, 11:59 PM**
+**Due: 28 October 2016, 11:59 PM**
 
 ## 1 Introduction
 
@@ -181,4 +181,4 @@ git push https://github.com/WITS-COMS2001/<student_number> master
 ```
 - Ensure that you include all files for your submission to be compiled. That is, if we run ```make``` on only the files you submitted, it should compile without errors. If your code does not compile or run, you will get 0.  
 
-This assignment is due **14 October 2016, 11:59 PM**. Please ensure your final code is in your private repository by then! 
+This assignment is due **28 October 2016, 11:59 PM**. Please ensure your final code is in your private repository by then! 
